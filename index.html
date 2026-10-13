@@ -1,0 +1,3164 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>RoadSafe AI | Helmet Detection</title>
+
+<!-- =====================================================
+     MEDIAPIPE FACE DETECTION
+====================================================== -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+
+<style>
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+:root{
+    --bg:#060a10;
+    --panel:#0d131c;
+    --panel2:#111a25;
+    --border:#202c3b;
+    --text:#edf3fa;
+    --muted:#8190a3;
+    --green:#20e59c;
+    --red:#ff4964;
+    --blue:#4da3ff;
+    --yellow:#ffc857;
+}
+
+body{
+    min-height:100vh;
+    background:
+        radial-gradient(
+            circle at 15% 10%,
+            rgba(77,163,255,.12),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at 85% 80%,
+            rgba(32,229,156,.07),
+            transparent 30%
+        ),
+        var(--bg);
+    color:var(--text);
+    font-family:
+        Inter,
+        Segoe UI,
+        Arial,
+        sans-serif;
+}
+
+.app{
+    width:min(1500px,100%);
+    margin:auto;
+    padding:20px;
+}
+
+/* =====================================================
+   HEADER
+====================================================== */
+
+.header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+    gap:15px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.logo{
+    width:48px;
+    height:48px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    font-size:25px;
+    background:linear-gradient(
+        135deg,
+        #172638,
+        #0c131d
+    );
+    border:1px solid var(--border);
+}
+
+.brand h1{
+    font-size:22px;
+}
+
+.brand p{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:3px;
+}
+
+.connection{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:#0d151e;
+    border:1px solid var(--border);
+    padding:8px 13px;
+    border-radius:30px;
+    font-size:11px;
+}
+
+.connection-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#555;
+}
+
+.connection-dot.online{
+    background:var(--green);
+    box-shadow:0 0 12px var(--green);
+}
+
+.connection-dot.error{
+    background:var(--red);
+}
+
+/* =====================================================
+   CAMERA SOURCE
+====================================================== */
+
+.source-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:15px;
+    padding:13px;
+    margin-bottom:17px;
+}
+
+.source-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.source-buttons{
+    display:flex;
+    gap:7px;
+}
+
+.source-btn{
+    padding:10px 14px;
+    border-radius:9px;
+    background:#080e16;
+    border:1px solid var(--border);
+    color:var(--muted);
+    cursor:pointer;
+    font-weight:700;
+}
+
+.source-btn.active{
+    background:#17283a;
+    color:white;
+    border-color:#365472;
+}
+
+.url-container{
+    flex:1;
+}
+
+.url-container input{
+    width:100%;
+    padding:11px 13px;
+    border-radius:9px;
+    background:#070c13;
+    color:white;
+    border:1px solid var(--border);
+    outline:none;
+}
+
+.url-container input:focus{
+    border-color:var(--blue);
+}
+
+/* =====================================================
+   MAIN GRID
+====================================================== */
+
+.main{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 340px;
+    gap:17px;
+}
+
+/* =====================================================
+   VIDEO
+====================================================== */
+
+.video-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:17px;
+    overflow:hidden;
+}
+
+.video-header{
+    padding:13px 16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid var(--border);
+}
+
+.video-header strong{
+    font-size:13px;
+}
+
+.video-header span{
+    display:block;
+    color:var(--muted);
+    font-size:10px;
+    margin-top:3px;
+}
+
+.fps{
+    color:var(--muted);
+    font-size:11px;
+}
+
+.video-container{
+    position:relative;
+    aspect-ratio:16/9;
+    background:#020508;
+    overflow:hidden;
+}
+
+#video{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:none;
+    transform:scaleX(1);
+}
+
+#espStream{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:none;
+}
+
+#processingCanvas{
+    position:absolute;
+    display:none;
+}
+
+#overlay{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+}
+
+.placeholder{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    text-align:center;
+}
+
+.placeholder-icon{
+    font-size:48px;
+    margin-bottom:12px;
+    opacity:.65;
+}
+
+.placeholder strong{
+    color:#dce6f2;
+    font-size:15px;
+}
+
+.placeholder span{
+    margin-top:6px;
+    font-size:11px;
+}
+
+/* =====================================================
+   CAMERA CONTROLS
+====================================================== */
+
+.controls{
+    padding:14px;
+    border-top:1px solid var(--border);
+    display:flex;
+    gap:8px;
+}
+
+button{
+    border:0;
+    color:white;
+    padding:11px 15px;
+    border-radius:9px;
+    cursor:pointer;
+    font-weight:700;
+    transition:.15s;
+}
+
+button:hover{
+    filter:brightness(1.1);
+}
+
+button:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+}
+
+.start{
+    background:#10875f;
+}
+
+.stop{
+    background:#a52e43;
+}
+
+.refresh{
+    background:#1b2a3b;
+}
+
+/* =====================================================
+   SIDE
+====================================================== */
+
+.side{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+}
+
+.card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:15px;
+    padding:16px;
+}
+
+.card-title{
+    font-size:12px;
+    font-weight:800;
+    margin-bottom:13px;
+}
+
+/* =====================================================
+   BIG STATUS
+====================================================== */
+
+.status-card{
+    text-align:center;
+}
+
+.status-circle{
+    width:70px;
+    height:70px;
+    margin:5px auto 12px;
+    border-radius:50%;
+    border:2px solid #293646;
+    background:#101924;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:29px;
+    font-weight:bold;
+}
+
+.status-circle.safe{
+    border-color:var(--green);
+    box-shadow:0 0 25px rgba(32,229,156,.15);
+}
+
+.status-circle.danger{
+    border-color:var(--red);
+    box-shadow:0 0 25px rgba(255,73,100,.15);
+}
+
+.status-circle.wait{
+    border-color:#344052;
+}
+
+.status-main{
+    font-size:21px;
+    font-weight:900;
+}
+
+.status-description{
+    color:var(--muted);
+    font-size:11px;
+    margin-top:5px;
+}
+
+/* =====================================================
+   METRICS
+====================================================== */
+
+.metric{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:9px 0;
+    border-bottom:1px solid #19232f;
+}
+
+.metric:last-child{
+    border-bottom:0;
+}
+
+.metric label{
+    color:var(--muted);
+    font-size:11px;
+}
+
+.metric strong{
+    font-size:11px;
+}
+
+.green{
+    color:var(--green);
+}
+
+.red{
+    color:var(--red);
+}
+
+.yellow{
+    color:var(--yellow);
+}
+
+/* =====================================================
+   SENSITIVITY
+====================================================== */
+
+.slider-info{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:8px;
+}
+
+.slider-value{
+    color:var(--blue);
+    font-weight:bold;
+}
+
+input[type=range]{
+    width:100%;
+    accent-color:var(--blue);
+}
+
+/* =====================================================
+   MODEL STATUS
+====================================================== */
+
+.model-status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:9px;
+    background:#080f17;
+    border-radius:8px;
+    font-size:10px;
+}
+
+.model-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#ffc857;
+}
+
+.model-dot.ready{
+    background:var(--green);
+}
+
+.model-dot.error{
+    background:var(--red);
+}
+
+/* =====================================================
+   COLORS
+====================================================== */
+
+.colors{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:7px;
+}
+
+.color{
+    border:1px solid #273343;
+    border-radius:7px;
+    padding:7px 4px;
+    text-align:center;
+    font-size:9px;
+    color:#7d8a9c;
+}
+
+.color.active{
+    border-color:#708399;
+    color:white;
+    background:#182331;
+}
+
+/* =====================================================
+   LOG
+====================================================== */
+
+.log{
+    max-height:140px;
+    overflow:auto;
+}
+
+.log-item{
+    padding:6px 0;
+    border-bottom:1px solid #18222d;
+    color:#778598;
+    font-size:9px;
+}
+
+.log-item strong{
+    color:#d7e0ea;
+}
+
+/* =====================================================
+   ERROR
+====================================================== */
+
+.error-box{
+    display:none;
+    margin-top:10px;
+    padding:10px;
+    background:rgba(255,73,100,.08);
+    border:1px solid rgba(255,73,100,.25);
+    color:#ff8c9c;
+    border-radius:8px;
+    font-size:10px;
+}
+
+/* =====================================================
+   FOOTER
+====================================================== */
+
+.footer{
+    text-align:center;
+    color:#526173;
+    font-size:9px;
+    margin-top:17px;
+}
+
+/* =====================================================
+   MOBILE
+====================================================== */
+
+@media(max-width:900px){
+
+    .main{
+        grid-template-columns:1fr;
+    }
+
+    .side{
+        display:grid;
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+@media(max-width:620px){
+
+    .app{
+        padding:10px;
+    }
+
+    .header{
+        align-items:flex-start;
+    }
+
+    .connection{
+        display:none;
+    }
+
+    .source-row{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .source-buttons{
+        width:100%;
+    }
+
+    .source-btn{
+        flex:1;
+    }
+
+    .controls button{
+        flex:1;
+        padding:10px 5px;
+        font-size:11px;
+    }
+
+    .side{
+        display:flex;
+    }
+
+    .brand h1{
+        font-size:18px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- =====================================================
+     HEADER
+====================================================== -->
+
+<div class="header">
+
+    <div class="brand">
+
+        <div class="logo">🪖</div>
+
+        <div>
+            <h1>RoadSafe AI</h1>
+            <p>Real-Time Face & Helmet Detection</p>
+        </div>
+
+    </div>
+
+    <div class="connection">
+
+        <div
+            class="connection-dot"
+            id="connectionDot">
+        </div>
+
+        <span id="connectionText">
+            SYSTEM OFFLINE
+        </span>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     SOURCE
+====================================================== -->
+
+<div class="source-card">
+
+    <div class="source-row">
+
+        <div class="source-buttons">
+
+            <button
+                id="espButton"
+                class="source-btn active"
+                onclick="selectSource('esp')">
+                ESP32-CAM
+            </button>
+
+            <button
+                id="pcButton"
+                class="source-btn"
+                onclick="selectSource('pc')">
+                PC CAMERA
+            </button>
+
+        </div>
+
+        <div
+            class="url-container"
+            id="urlContainer">
+
+            <input
+                id="streamURL"
+                type="text"
+                value="http://10.17.11.59.mjpegstream"
+                placeholder="ESP32-CAM MJPEG stream URL">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     MAIN
+====================================================== -->
+
+<div class="main">
+
+
+<!-- =====================================================
+     VIDEO CARD
+====================================================== -->
+
+<div class="video-card">
+
+    <div class="video-header">
+
+        <div>
+
+            <strong>LIVE CAMERA FEED</strong>
+
+            <span id="sourceName">
+                ESP32-CAM STREAM
+            </span>
+
+        </div>
+
+        <div
+            class="fps"
+            id="fps">
+            FPS: --
+        </div>
+
+    </div>
+
+
+    <div class="video-container">
+
+        <video
+            id="video"
+            autoplay
+            muted
+            playsinline>
+        </video>
+
+
+        <img
+            id="espStream"
+            alt="ESP32-CAM Stream">
+
+
+        <canvas
+            id="processingCanvas">
+        </canvas>
+
+
+        <canvas
+            id="overlay">
+        </canvas>
+
+
+        <div
+            class="placeholder"
+            id="placeholder">
+
+            <div class="placeholder-icon">
+                📷
+            </div>
+
+            <strong>
+                Camera not started
+            </strong>
+
+            <span>
+                Select camera and press Start Camera
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <div class="controls">
+
+        <button
+            class="start"
+            id="startButton"
+            onclick="startCamera()">
+            ▶ START CAMERA
+        </button>
+
+        <button
+            class="stop"
+            id="stopButton"
+            onclick="stopCamera()"
+            disabled>
+            ■ STOP
+        </button>
+
+        <button
+            class="refresh"
+            onclick="refreshCamera()">
+            ↻ REFRESH
+        </button>
+
+    </div>
+
+    <div
+        class="error-box"
+        id="errorBox">
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     SIDE PANEL
+====================================================== -->
+
+<div class="side">
+
+
+<!-- STATUS -->
+
+<div class="card status-card">
+
+    <div class="card-title">
+        SAFETY STATUS
+    </div>
+
+    <div
+        class="status-circle wait"
+        id="statusCircle">
+        ?
+    </div>
+
+    <div
+        class="status-main"
+        id="statusMain">
+        WAITING
+    </div>
+
+    <div
+        class="status-description"
+        id="statusDescription">
+        Start camera to begin
+    </div>
+
+</div>
+
+
+<!-- DETECTION -->
+
+<div class="card">
+
+    <div class="card-title">
+        DETECTION
+    </div>
+
+    <div class="metric">
+
+        <label>FACE</label>
+
+        <strong
+            id="faceStatus">
+            NOT DETECTED
+        </strong>
+
+    </div>
+
+    <div class="metric">
+
+        <label>FACES</label>
+
+        <strong id="faceCount">
+            0
+        </strong>
+
+    </div>
+
+    <div class="metric">
+
+        <label>HELMET</label>
+
+        <strong id="helmetStatus">
+            WAITING
+        </strong>
+
+    </div>
+
+    <div class="metric">
+
+        <label>CONFIDENCE</label>
+
+        <strong id="confidence">
+            0%
+        </strong>
+
+    </div>
+
+    <div class="metric">
+
+        <label>HELMET COLOR</label>
+
+        <strong id="helmetColor">
+            --
+        </strong>
+
+    </div>
+
+    <div class="metric">
+
+        <label>ZONE BRIGHTNESS</label>
+
+        <strong id="zoneBrightness">
+            --
+        </strong>
+
+    </div>
+
+</div>
+
+
+<!-- MODEL -->
+
+<div class="card">
+
+    <div class="card-title">
+        AI ENGINE
+    </div>
+
+    <div class="model-status">
+
+        <div
+            class="model-dot"
+            id="modelDot">
+        </div>
+
+        <span id="modelText">
+            Loading MediaPipe Face Detection...
+        </span>
+
+    </div>
+
+</div>
+
+
+<!-- SENSITIVITY -->
+
+<div class="card">
+
+    <div class="card-title">
+        HELMET SENSITIVITY
+    </div>
+
+    <div class="slider-info">
+
+        <span>
+            Strict
+        </span>
+
+        <span
+            class="slider-value"
+            id="sliderValue">
+            25
+        </span>
+
+        <span>
+            Lenient
+        </span>
+
+    </div>
+
+    <input
+        id="sensitivity"
+        type="range"
+        min="5"
+        max="50"
+        value="25">
+
+</div>
+
+
+<!-- COLORS -->
+
+<div class="card">
+
+    <div class="card-title">
+        HELMET COLORS
+    </div>
+
+    <div class="colors">
+
+        <div class="color" id="BLACK">
+            BLACK
+        </div>
+
+        <div class="color" id="BLUE">
+            BLUE
+        </div>
+
+        <div class="color" id="RED">
+            RED
+        </div>
+
+        <div class="color" id="YELLOW">
+            YELLOW
+        </div>
+
+        <div class="color" id="WHITE">
+            WHITE
+        </div>
+
+        <div class="color" id="ORANGE">
+            ORANGE
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- LOG -->
+
+<div class="card">
+
+    <div class="card-title">
+        DETECTION LOG
+    </div>
+
+    <div
+        class="log"
+        id="log">
+    </div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="footer">
+    RoadSafe AI • MediaPipe Face Detection • Client-Side Computer Vision
+</div>
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   GLOBAL VARIABLES
+====================================================== */
+
+let currentSource = "esp";
+
+let running = false;
+
+let pcStream = null;
+
+let faceDetector = null;
+
+let modelReady = false;
+
+let animationFrame = null;
+
+let frameCounter = 0;
+
+let fpsStart = performance.now();
+
+let lastDetectionTime = 0;
+
+let lastHelmetState = null;
+
+let lastColor = null;
+
+
+const video =
+    document.getElementById("video");
+
+const espStream =
+    document.getElementById("espStream");
+
+const processingCanvas =
+    document.getElementById("processingCanvas");
+
+const processingContext =
+    processingCanvas.getContext("2d");
+
+const overlay =
+    document.getElementById("overlay");
+
+const ctx =
+    overlay.getContext("2d");
+
+
+/* =====================================================
+   LOG
+====================================================== */
+
+function log(message){
+
+    const container =
+        document.getElementById("log");
+
+    const item =
+        document.createElement("div");
+
+    item.className = "log-item";
+
+    item.innerHTML =
+        "<strong>" +
+        new Date().toLocaleTimeString() +
+        "</strong> — " +
+        message;
+
+    container.prepend(item);
+
+    while(container.children.length > 20){
+
+        container.removeChild(
+            container.lastChild
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   ERROR
+====================================================== */
+
+function showError(message){
+
+    const box =
+        document.getElementById("errorBox");
+
+    box.style.display = "block";
+
+    box.textContent = message;
+
+}
+
+
+function hideError(){
+
+    const box =
+        document.getElementById("errorBox");
+
+    box.style.display = "none";
+
+}
+
+
+/* =====================================================
+   CONNECTION
+====================================================== */
+
+function connection(online){
+
+    const dot =
+        document.getElementById("connectionDot");
+
+    const text =
+        document.getElementById("connectionText");
+
+
+    if(online){
+
+        dot.className =
+            "connection-dot online";
+
+        text.textContent =
+            "SYSTEM ONLINE";
+
+    }else{
+
+        dot.className =
+            "connection-dot";
+
+        text.textContent =
+            "SYSTEM OFFLINE";
+
+    }
+
+}
+
+
+/* =====================================================
+   STATUS
+====================================================== */
+
+function status(type,title,description){
+
+    const circle =
+        document.getElementById("statusCircle");
+
+    const main =
+        document.getElementById("statusMain");
+
+    const desc =
+        document.getElementById("statusDescription");
+
+
+    circle.className =
+        "status-circle " + type;
+
+
+    if(type === "safe"){
+
+        circle.textContent = "✓";
+
+    }else if(type === "danger"){
+
+        circle.textContent = "!";
+
+    }else{
+
+        circle.textContent = "?";
+
+    }
+
+
+    main.textContent = title;
+
+    desc.textContent = description;
+
+}
+
+
+/* =====================================================
+   MEDIAPIPE INITIALIZATION
+====================================================== */
+
+async function initializeFaceDetector(){
+
+    try{
+
+        if(typeof FaceDetection === "undefined"){
+
+            throw new Error(
+                "MediaPipe Face Detection library failed to load."
+            );
+
+        }
+
+
+        faceDetector =
+            new FaceDetection({
+
+                locateFile:
+                function(file){
+
+                    return "https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/" + file;
+
+                }
+
+            });
+
+
+        faceDetector.setOptions({
+
+            model: "short",
+
+            minDetectionConfidence: 0.45
+
+        });
+
+
+        faceDetector.onResults(
+            handleDetectionResults
+        );
+
+
+        /*
+           Send a tiny image after initialization.
+
+           This forces MediaPipe to initialize
+           its internal WASM/model pipeline.
+        */
+
+        const testCanvas =
+            document.createElement("canvas");
+
+        testCanvas.width = 64;
+        testCanvas.height = 64;
+
+        const testContext =
+            testCanvas.getContext("2d");
+
+        testContext.fillStyle = "#222";
+
+        testContext.fillRect(
+            0,
+            0,
+            64,
+            64
+        );
+
+
+        await faceDetector.send({
+            image:testCanvas
+        });
+
+
+        modelReady = true;
+
+
+        document.getElementById("modelDot")
+            .className = "model-dot ready";
+
+        document.getElementById("modelText")
+            .textContent =
+            "Face Detection AI READY";
+
+
+        log(
+            "MediaPipe Face Detection ready."
+        );
+
+    }catch(error){
+
+        console.error(error);
+
+        modelReady = false;
+
+        document.getElementById("modelDot")
+            .className = "model-dot error";
+
+        document.getElementById("modelText")
+            .textContent =
+            "MODEL FAILED";
+
+
+        log(
+            "MediaPipe initialization failed."
+        );
+
+
+        showError(
+            "Face AI model failed to load. Check internet connection and reload the page."
+        );
+
+    }
+
+}
+
+
+initializeFaceDetector();
+
+
+/* =====================================================
+   SOURCE SWITCH
+====================================================== */
+
+function selectSource(type){
+
+    stopCamera();
+
+    currentSource = type;
+
+
+    const espButton =
+        document.getElementById("espButton");
+
+    const pcButton =
+        document.getElementById("pcButton");
+
+
+    if(type === "esp"){
+
+        espButton.classList.add("active");
+
+        pcButton.classList.remove("active");
+
+        document.getElementById("urlContainer")
+            .style.display = "block";
+
+        document.getElementById("sourceName")
+            .textContent =
+            "ESP32-CAM MJPEG STREAM";
+
+    }else{
+
+        pcButton.classList.add("active");
+
+        espButton.classList.remove("active");
+
+        document.getElementById("urlContainer")
+            .style.display = "none";
+
+        document.getElementById("sourceName")
+            .textContent =
+            "PC / LAPTOP CAMERA";
+
+    }
+
+}
+
+
+/* =====================================================
+   START CAMERA
+====================================================== */
+
+async function startCamera(){
+
+    hideError();
+
+
+    if(running){
+        return;
+    }
+
+
+    if(!modelReady){
+
+        status(
+            "danger",
+            "AI NOT READY",
+            "Face detection model is still loading"
+        );
+
+        showError(
+            "Face Detection AI is not ready yet. Wait a few seconds and try again."
+        );
+
+        return;
+
+    }
+
+
+    if(currentSource === "pc"){
+
+        await startPC();
+
+    }else{
+
+        startESP();
+
+    }
+
+}
+
+
+/* =====================================================
+   PC CAMERA
+====================================================== */
+
+async function startPC(){
+
+    try{
+
+        if(!navigator.mediaDevices ||
+           !navigator.mediaDevices.getUserMedia){
+
+            throw new Error(
+                "Browser does not support camera access."
+            );
+
+        }
+
+
+        pcStream =
+            await navigator.mediaDevices
+            .getUserMedia({
+
+                video:{
+                    width:{
+                        ideal:1280
+                    },
+                    height:{
+                        ideal:720
+                    },
+                    facingMode:"user"
+                },
+
+                audio:false
+
+            });
+
+
+        video.srcObject = pcStream;
+
+        video.style.display = "block";
+
+        espStream.style.display = "none";
+
+
+        await video.play();
+
+
+        /*
+           Wait until video has actual dimensions.
+        */
+
+        await waitForVideo();
+
+
+        running = true;
+
+        document.getElementById("placeholder")
+            .style.display = "none";
+
+
+        document.getElementById("startButton")
+            .disabled = true;
+
+        document.getElementById("stopButton")
+            .disabled = false;
+
+
+        connection(true);
+
+        log("PC camera started.");
+
+        status(
+            "wait",
+            "SCANNING",
+            "Looking for face..."
+        );
+
+
+        processPC();
+
+    }catch(error){
+
+        console.error(error);
+
+        connection(false);
+
+        status(
+            "danger",
+            "CAMERA ERROR",
+            error.message
+        );
+
+        showError(
+            "Could not access PC camera. Allow camera permission in browser."
+        );
+
+        log(
+            "PC camera failed."
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   WAIT FOR VIDEO
+====================================================== */
+
+function waitForVideo(){
+
+    return new Promise(resolve=>{
+
+        if(
+            video.readyState >= 2 &&
+            video.videoWidth > 0
+        ){
+
+            resolve();
+
+            return;
+
+        }
+
+
+        const check =
+            setInterval(()=>{
+
+                if(
+                    video.readyState >= 2 &&
+                    video.videoWidth > 0
+                ){
+
+                    clearInterval(check);
+
+                    resolve();
+
+                }
+
+            },100);
+
+    });
+
+}
+
+
+/* =====================================================
+   ESP32
+====================================================== */
+
+function startESP(){
+
+    const url =
+        document
+        .getElementById("streamURL")
+        .value
+        .trim();
+
+
+    if(!url){
+
+        showError(
+            "Enter ESP32-CAM stream URL first."
+        );
+
+        return;
+
+    }
+
+
+    /*
+       Browser displays MJPEG using IMG.
+    */
+
+    espStream.onload = function(){
+
+        running = true;
+
+        espStream.style.display = "block";
+
+        video.style.display = "none";
+
+        document.getElementById("placeholder")
+            .style.display = "none";
+
+
+        document.getElementById("startButton")
+            .disabled = true;
+
+        document.getElementById("stopButton")
+            .disabled = false;
+
+
+        connection(true);
+
+        hideError();
+
+        log(
+            "ESP32-CAM stream connected."
+        );
+
+
+        status(
+            "wait",
+            "SCANNING",
+            "Looking for face..."
+        );
+
+
+        processESP();
+
+    };
+
+
+    espStream.onerror = function(){
+
+        connection(false);
+
+        running = false;
+
+
+        status(
+            "danger",
+            "STREAM ERROR",
+            "ESP32-CAM could not be loaded"
+        );
+
+
+        showError(
+            "ESP32-CAM stream could not be loaded. Check IP address, Wi-Fi and MJPEG URL."
+        );
+
+
+        log(
+            "ESP32-CAM stream failed."
+        );
+
+    };
+
+
+    /*
+       Force browser to request a fresh stream.
+    */
+
+    espStream.src =
+        url +
+        (url.includes("?") ? "&" : "?") +
+        "cache=" +
+        Date.now();
+
+}
+
+
+/* =====================================================
+   PC PROCESS LOOP
+====================================================== */
+
+async function processPC(){
+
+    if(!running ||
+       currentSource !== "pc"){
+
+        return;
+
+    }
+
+
+    try{
+
+        if(
+            video.readyState >= 2 &&
+            video.videoWidth > 0
+        ){
+
+            /*
+               Resize processing canvas.
+            */
+
+            const maxWidth = 640;
+
+            const scale =
+                Math.min(
+                    1,
+                    maxWidth /
+                    video.videoWidth
+                );
+
+
+            const width =
+                Math.round(
+                    video.videoWidth * scale
+                );
+
+            const height =
+                Math.round(
+                    video.videoHeight * scale
+                );
+
+
+            processingCanvas.width =
+                width;
+
+            processingCanvas.height =
+                height;
+
+
+            processingContext.drawImage(
+                video,
+                0,
+                0,
+                width,
+                height
+            );
+
+
+            await faceDetector.send({
+                image:processingCanvas
+            });
+
+        }
+
+    }catch(error){
+
+        console.warn(error);
+
+    }
+
+
+    animationFrame =
+        requestAnimationFrame(
+            processPC
+        );
+
+}
+
+
+/* =====================================================
+   ESP PROCESS LOOP
+====================================================== */
+
+async function processESP(){
+
+    if(!running ||
+       currentSource !== "esp"){
+
+        return;
+
+    }
+
+
+    /*
+       NOTE:
+
+       This works only when browser is allowed
+       to read pixels from ESP32 stream.
+
+       CORS must allow the page.
+    */
+
+    try{
+
+        if(
+            espStream.complete &&
+            espStream.naturalWidth > 0
+        ){
+
+            const maxWidth = 640;
+
+            const scale =
+                Math.min(
+                    1,
+                    maxWidth /
+                    espStream.naturalWidth
+                );
+
+
+            const width =
+                Math.round(
+                    espStream.naturalWidth *
+                    scale
+                );
+
+            const height =
+                Math.round(
+                    espStream.naturalHeight *
+                    scale
+                );
+
+
+            processingCanvas.width =
+                width;
+
+            processingCanvas.height =
+                height;
+
+
+            processingContext.drawImage(
+                espStream,
+                0,
+                0,
+                width,
+                height
+            );
+
+
+            await faceDetector.send({
+                image:processingCanvas
+            });
+
+        }
+
+    }catch(error){
+
+        /*
+           This usually means CORS blocked
+           pixel access.
+        */
+
+        console.warn(
+            "ESP32 pixel processing error:",
+            error
+        );
+
+        status(
+            "danger",
+            "ESP32 CORS",
+            "Stream visible but browser cannot analyze pixels"
+        );
+
+        showError(
+            "ESP32 stream is reaching the browser, but CORS prevents AI frame analysis. PC Camera should work normally."
+        );
+
+    }
+
+
+    animationFrame =
+        requestAnimationFrame(
+            processESP
+        );
+
+}
+
+
+/* =====================================================
+   FACE DETECTION RESULTS
+====================================================== */
+
+function handleDetectionResults(results){
+
+    if(!running){
+        return;
+    }
+
+
+    frameCounter++;
+
+
+    const now =
+        performance.now();
+
+
+    if(now - fpsStart >= 1000){
+
+        document.getElementById("fps")
+            .textContent =
+            "FPS: " + frameCounter;
+
+        frameCounter = 0;
+
+        fpsStart = now;
+
+    }
+
+
+    clearOverlay();
+
+
+    const detections =
+        results.detections || [];
+
+
+    document.getElementById("faceCount")
+        .textContent =
+        detections.length;
+
+
+    if(detections.length === 0){
+
+        document.getElementById("faceStatus")
+            .textContent =
+            "NOT DETECTED";
+
+        document.getElementById("faceStatus")
+            .className = "red";
+
+
+        document.getElementById("helmetStatus")
+            .textContent =
+            "WAITING";
+
+        document.getElementById("confidence")
+            .textContent =
+            "0%";
+
+        document.getElementById("helmetColor")
+            .textContent =
+            "--";
+
+        document.getElementById("zoneBrightness")
+            .textContent =
+            "--";
+
+
+        status(
+            "wait",
+            "NO FACE",
+            "Move your face into the camera"
+        );
+
+
+        return;
+
+    }
+
+
+    document.getElementById("faceStatus")
+        .textContent =
+        "DETECTED";
+
+    document.getElementById("faceStatus")
+        .className = "green";
+
+
+    /*
+       Process every detected face.
+    */
+
+    let strongest =
+        null;
+
+
+    detections.forEach(
+        (detection,index)=>{
+
+            const result =
+                analyzeFace(
+                    detection,
+                    index
+                );
+
+
+            /*
+               For dashboard status use
+               highest confidence result.
+            */
+
+            if(
+                !strongest ||
+                result.confidence >
+                strongest.confidence
+            ){
+
+                strongest = result;
+
+            }
+
+        }
+    );
+
+
+    if(strongest){
+
+        updateMainResult(
+            strongest
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   ANALYZE FACE
+====================================================== */
+
+function analyzeFace(
+    detection,
+    index
+){
+
+    const box =
+        detection.boundingBox;
+
+
+    /*
+       MediaPipe returns normalized
+       coordinates.
+    */
+
+    const sourceWidth =
+        processingCanvas.width;
+
+    const sourceHeight =
+        processingCanvas.height;
+
+
+    const faceX =
+        box.xCenter *
+        sourceWidth -
+        (box.width *
+        sourceWidth / 2);
+
+
+    const faceY =
+        box.yCenter *
+        sourceHeight -
+        (box.height *
+        sourceHeight / 2);
+
+
+    const faceW =
+        box.width *
+        sourceWidth;
+
+
+    const faceH =
+        box.height *
+        sourceHeight;
+
+
+    /*
+       Helmet zone:
+
+       20% wider than face.
+
+       Zone sits ABOVE face.
+
+       Height = 65% of face height.
+
+       We also avoid covering too much
+       background.
+    */
+
+    const zoneW =
+        faceW * 1.20;
+
+
+    const zoneH =
+        faceH * 0.65;
+
+
+    const zoneX =
+        faceX -
+        ((zoneW-faceW)/2);
+
+
+    const zoneY =
+        Math.max(
+            0,
+            faceY -
+            zoneH * 0.78
+        );
+
+
+    /*
+       Analyze zone.
+    */
+
+    const analysis =
+        analyzeHelmetZone(
+            zoneX,
+            zoneY,
+            zoneW,
+            zoneH,
+            faceX,
+            faceY,
+            faceW,
+            faceH
+        );
+
+
+    /*
+       Draw face + zone.
+    */
+
+    drawDetection(
+        faceX,
+        faceY,
+        faceW,
+        faceH,
+        zoneX,
+        zoneY,
+        zoneW,
+        zoneH,
+        analysis
+    );
+
+
+    return {
+
+        confidence:
+            analysis.confidence,
+
+        helmet:
+            analysis.helmet,
+
+        color:
+            analysis.color,
+
+        brightness:
+            analysis.brightness
+
+    };
+
+}
+
+
+/* =====================================================
+   HELMET ZONE ANALYSIS
+====================================================== */
+
+function analyzeHelmetZone(
+    x,
+    y,
+    w,
+    h,
+    faceX,
+    faceY,
+    faceW,
+    faceH
+){
+
+    /*
+       Clamp zone to canvas.
+    */
+
+    const sx =
+        Math.max(0,Math.floor(x));
+
+    const sy =
+        Math.max(0,Math.floor(y));
+
+    const ex =
+        Math.min(
+            processingCanvas.width,
+            Math.ceil(x+w)
+        );
+
+    const ey =
+        Math.min(
+            processingCanvas.height,
+            Math.ceil(y+h)
+        );
+
+
+    const sampleW =
+        Math.max(
+            1,
+            ex-sx
+        );
+
+    const sampleH =
+        Math.max(
+            1,
+            ey-sy
+        );
+
+
+    let data;
+
+
+    try{
+
+        data =
+            processingContext
+            .getImageData(
+                sx,
+                sy,
+                sampleW,
+                sampleH
+            ).data;
+
+    }catch(error){
+
+        return {
+
+            helmet:false,
+
+            confidence:0,
+
+            brightness:128,
+
+            color:"UNKNOWN"
+
+        };
+
+    }
+
+
+    let totalBrightness = 0;
+
+    let totalSaturation = 0;
+
+    let totalR = 0;
+
+    let totalG = 0;
+
+    let totalB = 0;
+
+    let darkPixels = 0;
+
+    let brightPixels = 0;
+
+    let count = 0;
+
+
+    for(
+        let i=0;
+        i<data.length;
+        i+=4
+    ){
+
+        const r =
+            data[i];
+
+        const g =
+            data[i+1];
+
+        const b =
+            data[i+2];
+
+
+        const brightness =
+            0.299*r +
+            0.587*g +
+            0.114*b;
+
+
+        const max =
+            Math.max(r,g,b);
+
+        const min =
+            Math.min(r,g,b);
+
+
+        const saturation =
+            max === 0
+            ? 0
+            : (max-min)/max;
+
+
+        totalBrightness +=
+            brightness;
+
+        totalSaturation +=
+            saturation;
+
+        totalR += r;
+
+        totalG += g;
+
+        totalB += b;
+
+
+        if(brightness < 70){
+            darkPixels++;
+        }
+
+        if(brightness > 205){
+            brightPixels++;
+        }
+
+        count++;
+
+    }
+
+
+    if(count === 0){
+
+        return {
+
+            helmet:false,
+            confidence:0,
+            brightness:128,
+            color:"UNKNOWN"
+
+        };
+
+    }
+
+
+    const avgBrightness =
+        totalBrightness/count;
+
+
+    const avgSaturation =
+        totalSaturation/count;
+
+
+    const avgR =
+        totalR/count;
+
+    const avgG =
+        totalG/count;
+
+    const avgB =
+        totalB/count;
+
+
+    const darkRatio =
+        darkPixels/count;
+
+
+    const brightRatio =
+        brightPixels/count;
+
+
+    /*
+       COLOR DETECTION
+    */
+
+    let color =
+        "UNKNOWN";
+
+
+    if(avgBrightness < 55){
+
+        color =
+            "BLACK";
+
+    }else if(
+        avgR > 185 &&
+        avgG > 185 &&
+        avgB > 185 &&
+        avgSaturation < .25
+    ){
+
+        color =
+            "WHITE";
+
+    }else if(
+        avgR > 150 &&
+        avgR > avgG*1.35 &&
+        avgR > avgB*1.25
+    ){
+
+        color =
+            "RED";
+
+    }else if(
+        avgR > 170 &&
+        avgG > 80 &&
+        avgG < 190 &&
+        avgB < 100
+    ){
+
+        color =
+            "ORANGE";
+
+    }else if(
+        avgR > 150 &&
+        avgG > 130 &&
+        avgB < 120
+    ){
+
+        color =
+            "YELLOW";
+
+    }else if(
+        avgB > avgR*1.20 &&
+        avgB > avgG*1.05
+    ){
+
+        color =
+            "BLUE";
+
+    }
+
+
+    /*
+       Sensitivity.
+
+       Higher number = more lenient.
+    */
+
+    const sensitivity =
+        Number(
+            document.getElementById(
+                "sensitivity"
+            ).value
+        );
+
+
+    /*
+       Base dark helmet score.
+    */
+
+    let darkScore =
+        darkRatio * 100;
+
+
+    /*
+       Colored helmet score.
+    */
+
+    let colorScore =
+        avgSaturation * 100;
+
+
+    /*
+       White helmet score.
+
+       White helmets are difficult to identify
+       from brightness alone because the sky/background
+       may also be bright.
+    */
+
+    let whiteScore = 0;
+
+
+    if(
+        color === "WHITE" &&
+        avgBrightness > 150
+    ){
+
+        whiteScore =
+            75;
+
+    }
+
+
+    /*
+       Adaptive threshold.
+
+       Sensitivity 5 = strict.
+
+       Sensitivity 50 = lenient.
+    */
+
+    const threshold =
+        65 -
+        (sensitivity * .65);
+
+
+    /*
+       Score logic.
+
+       Black helmet:
+       darkness strongly supports detection.
+
+       Colored helmet:
+       saturation supports detection.
+
+       White helmet:
+       color classification supports detection.
+    */
+
+    let score = 0;
+
+
+    if(color === "BLACK"){
+
+        score =
+            darkScore * .78 +
+            colorScore * .22;
+
+    }else if(color === "WHITE"){
+
+        score =
+            whiteScore * .70 +
+            colorScore * .30;
+
+    }else if(
+        color === "BLUE" ||
+        color === "RED" ||
+        color === "YELLOW" ||
+        color === "ORANGE"
+    ){
+
+        score =
+            colorScore * .80 +
+            darkScore * .20;
+
+    }else{
+
+        /*
+           Unknown region.
+
+           Darkness can still indicate
+           black helmet.
+        */
+
+        score =
+            darkScore * .65;
+
+    }
+
+
+    /*
+       Bright region penalty.
+
+       This prevents a completely bright
+       forehead/sky region from becoming
+       a helmet too easily.
+    */
+
+    if(
+        brightRatio > .60 &&
+        color !== "WHITE"
+    ){
+
+        score -= 25;
+
+    }
+
+
+    score =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                score
+            )
+        );
+
+
+    /*
+       Final decision.
+    */
+
+    const helmet =
+        score >= threshold;
+
+
+    return {
+
+        helmet:helmet,
+
+        confidence:Math.round(score),
+
+        brightness:
+            Math.round(avgBrightness),
+
+        color:color
+
+    };
+
+}
+
+
+/* =====================================================
+   DRAW DETECTION
+====================================================== */
+
+function drawDetection(
+    faceX,
+    faceY,
+    faceW,
+    faceH,
+    zoneX,
+    zoneY,
+    zoneW,
+    zoneH,
+    analysis
+){
+
+    const color =
+        analysis.helmet
+        ? "#20e59c"
+        : "#ff4964";
+
+
+    /*
+       FACE BOX
+    */
+
+    ctx.strokeStyle =
+        color;
+
+    ctx.lineWidth = 4;
+
+    ctx.strokeRect(
+        faceX,
+        faceY,
+        faceW,
+        faceH
+    );
+
+
+    /*
+       HELMET ZONE
+    */
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        analysis.helmet
+        ? "rgba(32,229,156,.9)"
+        : "rgba(255,201,87,.9)";
+
+    ctx.lineWidth = 2;
+
+    ctx.setLineDash([
+        8,
+        6
+    ]);
+
+    ctx.strokeRect(
+        zoneX,
+        zoneY,
+        zoneW,
+        zoneH
+    );
+
+    ctx.restore();
+
+
+    /*
+       LABEL
+    */
+
+    const label =
+        analysis.helmet
+        ? "HELMET ON"
+        : "NO HELMET";
+
+
+    const confidence =
+        analysis.confidence +
+        "%";
+
+
+    ctx.font =
+        "bold 14px Arial";
+
+
+    const labelWidth =
+        ctx.measureText(
+            label + "  " + confidence
+        ).width +
+        20;
+
+
+    const labelY =
+        Math.max(
+            27,
+            faceY-7
+        );
+
+
+    ctx.fillStyle =
+        color;
+
+
+    ctx.fillRect(
+        faceX,
+        labelY-25,
+        labelWidth,
+        25
+    );
+
+
+    ctx.fillStyle =
+        analysis.helmet
+        ? "#04130d"
+        : "#170509";
+
+
+    ctx.fillText(
+        label +
+        "  " +
+        confidence,
+        faceX+10,
+        labelY-8
+    );
+
+
+    /*
+       HELMET ZONE TEXT
+    */
+
+    ctx.font =
+        "bold 10px Arial";
+
+
+    ctx.fillStyle =
+        "#ffffff";
+
+
+    ctx.fillText(
+        "HELMET ZONE",
+        zoneX+5,
+        zoneY+14
+    );
+
+}
+
+
+/* =====================================================
+   UPDATE MAIN RESULT
+====================================================== */
+
+function updateMainResult(result){
+
+    document.getElementById("confidence")
+        .textContent =
+        result.confidence + "%";
+
+
+    document.getElementById("zoneBrightness")
+        .textContent =
+        result.brightness;
+
+
+    document.getElementById("helmetColor")
+        .textContent =
+        result.color;
+
+
+    document.getElementById("helmetStatus")
+        .textContent =
+        result.helmet
+        ? "HELMET ON"
+        : "NO HELMET";
+
+
+    document.getElementById("helmetStatus")
+        .className =
+        result.helmet
+        ? "green"
+        : "red";
+
+
+    highlightColor(
+        result.color
+    );
+
+
+    if(result.helmet){
+
+        status(
+            "safe",
+            "HELMET ON",
+            result.color +
+            " helmet detected"
+        );
+
+    }else{
+
+        status(
+            "danger",
+            "NO HELMET",
+            "Helmet not confidently detected"
+        );
+
+    }
+
+
+    /*
+       Log only when state changes.
+    */
+
+    if(
+        lastHelmetState !== result.helmet ||
+        lastColor !== result.color
+    ){
+
+        log(
+            result.helmet
+            ? "Helmet detected • " +
+              result.color +
+              " • " +
+              result.confidence +
+              "%"
+            : "No helmet detected • " +
+              result.confidence +
+              "%"
+        );
+
+
+        lastHelmetState =
+            result.helmet;
+
+        lastColor =
+            result.color;
+
+    }
+
+}
+
+
+/* =====================================================
+   COLOR HIGHLIGHT
+====================================================== */
+
+function highlightColor(color){
+
+    const colors = [
+        "BLACK",
+        "BLUE",
+        "RED",
+        "YELLOW",
+        "WHITE",
+        "ORANGE"
+    ];
+
+
+    colors.forEach(
+        name=>{
+
+            document
+            .getElementById(name)
+            .classList.remove(
+                "active"
+            );
+
+        }
+    );
+
+
+    if(
+        document.getElementById(color)
+    ){
+
+        document
+        .getElementById(color)
+        .classList.add(
+            "active"
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   CLEAR OVERLAY
+====================================================== */
+
+function clearOverlay(){
+
+    ctx.clearRect(
+        0,
+        0,
+        overlay.width,
+        overlay.height
+    );
+
+
+    /*
+       Keep overlay resolution synchronized
+       with processing image.
+    */
+
+    if(
+        overlay.width !==
+        processingCanvas.width ||
+        overlay.height !==
+        processingCanvas.height
+    ){
+
+        overlay.width =
+            processingCanvas.width;
+
+        overlay.height =
+            processingCanvas.height;
+
+    }
+
+}
+
+
+/* =====================================================
+   STOP CAMERA
+====================================================== */
+
+function stopCamera(){
+
+    running = false;
+
+
+    if(animationFrame){
+
+        cancelAnimationFrame(
+            animationFrame
+        );
+
+        animationFrame = null;
+
+    }
+
+
+    if(pcStream){
+
+        pcStream
+        .getTracks()
+        .forEach(
+            track=>track.stop()
+        );
+
+        pcStream = null;
+
+    }
+
+
+    video.pause();
+
+    video.srcObject = null;
+
+    espStream.src = "";
+
+
+    video.style.display =
+        "none";
+
+    espStream.style.display =
+        "none";
+
+
+    document.getElementById(
+        "placeholder"
+    ).style.display =
+        "flex";
+
+
+    document.getElementById(
+        "startButton"
+    ).disabled =
+        false;
+
+
+    document.getElementById(
+        "stopButton"
+    ).disabled =
+        true;
+
+
+    connection(false);
+
+    clearOverlay();
+
+
+    document.getElementById(
+        "faceStatus"
+    ).textContent =
+        "NOT DETECTED";
+
+
+    document.getElementById(
+        "faceStatus"
+    ).className =
+        "red";
+
+
+    document.getElementById(
+        "faceCount"
+    ).textContent =
+        "0";
+
+
+    document.getElementById(
+        "helmetStatus"
+    ).textContent =
+        "WAITING";
+
+
+    document.getElementById(
+        "confidence"
+    ).textContent =
+        "0%";
+
+
+    document.getElementById(
+        "helmetColor"
+    ).textContent =
+        "--";
+
+
+    document.getElementById(
+        "zoneBrightness"
+    ).textContent =
+        "--";
+
+
+    status(
+        "wait",
+        "WAITING",
+        "Start camera to begin"
+    );
+
+
+    lastHelmetState = null;
+
+    lastColor = null;
+
+
+    log(
+        "Camera stopped."
+    );
+
+}
+
+
+/* =====================================================
+   REFRESH
+====================================================== */
+
+function refreshCamera(){
+
+    const wasRunning =
+        running;
+
+
+    stopCamera();
+
+
+    setTimeout(
+        ()=>{
+
+            if(wasRunning){
+
+                startCamera();
+
+            }
+
+        },
+        500
+    );
+
+}
+
+
+/* =====================================================
+   SENSITIVITY
+====================================================== */
+
+document
+.getElementById("sensitivity")
+.addEventListener(
+    "input",
+    function(){
+
+        document
+        .getElementById(
+            "sliderValue"
+        )
+        .textContent =
+        this.value;
+
+    }
+);
+
+
+/* =====================================================
+   INITIAL UI
+====================================================== */
+
+connection(false);
+
+status(
+    "wait",
+    "WAITING",
+    "Start camera to begin"
+);
+
+
+log(
+    "RoadSafe AI loaded."
+);
+
+log(
+    "Loading Face Detection AI..."
+);
+
+
+/* =====================================================
+   PAGE VISIBILITY
+====================================================== */
+
+document.addEventListener(
+    "visibilitychange",
+    function(){
+
+        /*
+           Stop camera when page becomes hidden.
+           This prevents unnecessary CPU usage.
+        */
+
+        if(
+            document.hidden &&
+            running
+        ){
+
+            log(
+                "Page hidden — camera remains active."
+            );
+
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
+```
